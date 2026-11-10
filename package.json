@@ -1,0 +1,20 @@
+{
+  "name": "steamglazz",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CS2 skin price scanner: deals, cross-market comparison and arbitrage",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.ts",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.ts",
+    "scan": "node --disable-warning=ExperimentalWarning cli/scan.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
+  }
+}

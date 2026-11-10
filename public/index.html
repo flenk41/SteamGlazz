@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SteamGlazz — сканер цен CS2</title>
+  <meta name="description" content="Скины CS2 ниже рынка, сравнение цен между площадками и арбитраж с учётом комиссий.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23c6ff3d'/><path d='M8 21l6-7 4 4 6-8' stroke='%230b0d10' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+  <script type="module" src="/app/main.ts"></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/" aria-label="SteamGlazz">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><path d="M7 21l6-7 4 4 8-9" /></svg>
+      </span>
+      <span class="brand-name">Steam<b>Glazz</b></span>
+    </a>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="deals" aria-selected="true">Ниже рынка</button>
+      <button role="tab" data-tab="strategy">Стратегия</button>
+      <button role="tab" data-tab="arbitrage">Арбитраж</button>
+      <button role="tab" data-tab="movers">Движение</button>
+      <button role="tab" data-tab="card">Скин</button>
+      <button role="tab" data-tab="compare">Сравнение</button>
+      <button role="tab" data-tab="fees">Комиссии</button>
+    </nav>
+    <div class="sources" id="sources" aria-live="polite"></div>
+    <div class="seg cur-toggle" role="group" aria-label="Валюта">
+      <button type="button" data-cur="USD" aria-pressed="true" aria-label="Цены в долларах">$</button>
+      <button type="button" data-cur="RUB" aria-pressed="false" aria-label="Цены в рублях">₽</button>
+    </div>
+    <button class="btn ghost" id="refresh" title="Обновить цены (не чаще раза в минуту)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+      Обновить
+    </button>
+  </header>
+
+  <main>
+    <!-- ── Ниже рынка ───────────────────────────────────────────── -->
+    <section class="panel" data-panel="deals">
+      <div class="intro">
+        <h1>Скины ниже обычной цены</h1>
+        <p>Самые дешёвые лоты, у которых цена заметно ниже медианы реальных продаж за 7 дней (или ниже цен на других площадках).</p>
+      </div>
+      <form class="filters" id="f-deals" autocomplete="off">
+        <label class="grow">Поиск<input name="q" type="search" placeholder="AK-47 Redline, Karambit…"></label>
+        <label>Цена от, <span class="cur-sym">$</span><input data-money name="minPrice" type="number" step="0.01" min="0" value="1"></label>
+        <label>до, <span class="cur-sym">$</span><input data-money name="maxPrice" type="number" step="0.01" min="0" placeholder="∞"></label>
+        <label>Скидка от, %<input name="minDiscount" type="number" step="1" min="0" max="95" value="10" data-pct></label>
+        <label>Продаж за 7д ≥<input name="minVolume" type="number" step="1" min="0" value="5"></label>
+        <label>Категория
+          <select name="cat">
+            <option value="">Все</option>
+            <option value="weapon">Оружие</option>
+            <option value="knife">Ножи</option>
+            <option value="gloves">Перчатки</option>
+            <option value="sticker">Наклейки</option>
+            <option value="container">Кейсы и капсулы</option>
+            <option value="agent">Агенты</option>
+            <option value="charm">Брелоки</option>
+            <option value="patch">Нашивки</option>
+            <option value="music">Музыка</option>
+            <option value="graffiti">Граффити</option>
+          </select>
+        </label>
+        <label>Эталон цены
+          <select name="ref">
+            <option value="auto">Авто</option>
+            <option value="median7d">Медиана продаж 7д</option>
+            <option value="cross">Другие площадки</option>
+            <option value="suggested">Skinport suggested</option>
+          </select>
+        </label>
+        <fieldset class="chips" data-multi="markets"><legend>Где покупать</legend></fieldset>
+        <input type="hidden" name="sort" value="discount"><input type="hidden" name="dir" value="desc">
+      </form>
+      <div class="toolbar">
+        <span class="count" id="deals-count"></span>
+        <span class="spacer"></span>
+        <a class="btn" data-export="deals" data-format="csv">Выгрузить CSV</a>
+        <a class="btn" data-export="deals" data-format="json">JSON</a>
+      </div>
+      <div class="table-wrap"><table class="grid" id="t-deals"></table></div>
+      <button class="btn more" id="deals-more" hidden>Показать ещё</button>
+    </section>
+
+    <!-- ── Стратегия ─────────────────────────────────────────────── -->
+    <section class="panel" data-panel="strategy" hidden>
+      <div class="intro">
+        <h1>Стратегия под ваш бюджет</h1>
+        <p>Укажите бюджет и ограничения — программа сама найдёт самые выгодные связки площадок и составит план сделок:
+          что купить, где и почём выставить, сколько останется на руках после комиссий и за сколько дней всё продастся.</p>
+      </div>
+      <form class="filters" id="f-strategy" autocomplete="off">
+        <fieldset class="mode-cards">
+          <legend>Цель</legend>
+          <label><input type="radio" name="mode" value="cash" checked>
+            <span><b>Деньги → деньги</b><small>Купить на одной площадке, продать на другой и вывести прибыль</small></span></label>
+          <label><input type="radio" name="mode" value="steam-out">
+            <span><b>Вывести баланс Steam</b><small>Что купить в Steam и где продать, чтобы получить больше реальных денег</small></span></label>
+          <label><input type="radio" name="mode" value="steam-in">
+            <span><b>Пополнить Steam со скидкой</b><small>Купить дешевле на маркете и продать в Steam — баланса больше, чем потратили</small></span></label>
+        </fieldset>
+        <label>Бюджет, <span class="cur-sym">$</span><input data-money name="budget" type="number" step="0.01" min="1" value="100"></label>
+        <label>Продать за, дней
+          <select name="horizon">
+            <option value="1">1</option><option value="3">3</option><option value="7" selected>7</option>
+            <option value="14">14</option><option value="30">30</option>
+          </select>
+        </label>
+        <label title="Купленные на маркетах скины часто нельзя передать сразу: CS2 ставит защиту трейда до 7 дней">Трейд-лок, дней
+          <select name="lockDays"><option value="0">0</option><option value="7">7</option></select>
+        </label>
+        <label>Мин. продаж в день<input name="minPerDay" type="number" step="0.5" min="0" value="1"></label>
+        <label>Штук одного скина<input name="maxPerSkin" type="number" step="1" min="1" value="2"></label>
+        <label>Макс. на один скин, %<input name="maxShare" type="number" step="5" min="1" max="100" value="25" data-pct></label>
+        <label>Мин. выгода, %<input name="minRoi" type="number" step="0.5" min="0" value="3" data-pct></label>
+        <label>Цена продажи
+          <select name="sellMode">
+            <option value="safe">Осторожно (≤ медианы)</option>
+            <option value="ask">По мин. лоту − 1¢</option>
+          </select>
+        </label>
+        <label>Категория
+          <select name="cat">
+            <option value="">Все</option>
+            <option value="weapon">Оружие</option>
+            <option value="knife">Ножи</option>
+            <option value="gloves">Перчатки</option>
+            <option value="sticker">Наклейки</option>
+            <option value="container">Кейсы и капсулы</option>
+            <option value="agent">Агенты</option>
+            <option value="charm">Брелоки</option>
+          </select>
+        </label>
+        <fieldset class="chips" data-multi="markets"><legend>Площадки</legend></fieldset>
+      </form>
+
+      <div id="strategy-out" class="strategy-out"></div>
+
+      <p class="note">Как считается: для каждого скина берётся лучшая разрешённая связка после комиссий; цена продажи —
+        на 1¢ ниже минимального лота (в режиме «Осторожно» не выше медианы продаж за 7 дней). Скины, которые не успеют
+        продаться за выбранный срок, отбрасываются (считаем, что вы заберёте ~30 % ежедневных продаж). Затем бюджет
+        заполняется самыми выгодными вариантами с ограничением на долю одного скина. Цена — за самый дешёвый лот:
+        следующие штуки могут стоить дороже. Проверяйте лоты перед покупкой.</p>
+    </section>
+
+    <!-- ── Арбитраж ─────────────────────────────────────────────── -->
+    <section class="panel" data-panel="arbitrage" hidden>
+      <div class="intro">
+        <h1>Арбитраж между площадками</h1>
+        <p>Купить на одной площадке, выставить на другой. Профит уже за вычетом комиссий из вкладки «Комиссии».
+          В режиме «Осторожно» цена продажи ограничена медианой реальных продаж.</p>
+      </div>
+      <form class="filters" id="f-arbitrage" autocomplete="off">
+        <label class="grow">Поиск<input name="q" type="search" placeholder="Название предмета"></label>
+        <label>Цена от, <span class="cur-sym">$</span><input data-money name="minPrice" type="number" step="0.01" min="0" value="1"></label>
+        <label>до, <span class="cur-sym">$</span><input data-money name="maxPrice" type="number" step="0.01" min="0" placeholder="∞"></label>
+        <label>Профит от, <span class="cur-sym">$</span><input data-money name="minProfit" type="number" step="0.01" min="0" value="0.3"></label>
+        <label>ROI от, %<input name="minRoi" type="number" step="0.5" min="0" value="3" data-pct></label>
+        <label>Продаж за 7д ≥<input name="minVolume" type="number" step="1" min="0" value="10"></label>
+        <label>Цена продажи
+          <select name="sellMode">
+            <option value="safe">Осторожно (≤ медианы)</option>
+            <option value="ask">По мин. лоту − 1¢</option>
+          </select>
+        </label>
+        <label>Категория
+          <select name="cat">
+            <option value="">Все</option>
+            <option value="weapon">Оружие</option>
+            <option value="knife">Ножи</option>
+            <option value="gloves">Перчатки</option>
+            <option value="sticker">Наклейки</option>
+            <option value="container">Кейсы и капсулы</option>
+            <option value="agent">Агенты</option>
+            <option value="charm">Брелоки</option>
+          </select>
+        </label>
+        <fieldset class="chips" data-multi="buy"><legend>Покупаю на</legend></fieldset>
+        <fieldset class="chips" data-multi="sell" data-off="steam"><legend>Продаю на</legend></fieldset>
+        <label class="check"><input type="checkbox" name="hideSuspicious" value="1" checked> Скрыть подозрительные</label>
+        <input type="hidden" name="sort" value="profit"><input type="hidden" name="dir" value="desc">
+      </form>
+      <div class="toolbar">
+        <span class="count" id="arbitrage-count"></span>
+        <span class="spacer"></span>
+        <a class="btn" data-export="arbitrage" data-format="csv">Выгрузить CSV</a>
+        <a class="btn" data-export="arbitrage" data-format="json">JSON</a>
+      </div>
+      <div class="table-wrap"><table class="grid" id="t-arbitrage"></table></div>
+      <button class="btn more" id="arbitrage-more" hidden>Показать ещё</button>
+      <p class="note">Перед сделкой проверьте лот вживую: цены в API обновляются раз в 3–15 минут, у дорогих скинов
+        цену сильно меняют float, паттерн и наклейки, а купленный предмет может получить трейд-лок на 7 дней.</p>
+    </section>
+
+    <!-- ── Движение цен ──────────────────────────────────────────── -->
+    <section class="panel" data-panel="movers" hidden>
+      <div class="intro">
+        <h1>Движение цен</h1>
+        <p>Что сильнее всего подорожало и подешевело за период. Падение ликвидного скина — повод присмотреться к покупке,
+          резкий рост — к продаже.</p>
+      </div>
+      <form class="filters" id="f-movers" autocomplete="off">
+        <fieldset class="seg-field">
+          <legend>Период</legend>
+          <div class="seg">
+            <label><input type="radio" name="period" value="1d" checked><span>24ч</span></label>
+            <label><input type="radio" name="period" value="7d"><span>7д</span></label>
+            <label><input type="radio" name="period" value="30d"><span>30д</span></label>
+          </div>
+        </fieldset>
+        <label>Сравнивать
+          <select name="basis">
+            <option value="auto">Авто</option>
+            <option value="asks">Цены лотов (наша история)</option>
+            <option value="sales">Продажи Skinport (медианы)</option>
+          </select>
+        </label>
+        <label class="grow">Поиск<input name="q" type="search" placeholder="Название предмета"></label>
+        <label>Цена от, <span class="cur-sym">$</span><input data-money name="minPrice" type="number" step="0.01" min="0" value="1"></label>
+        <label>до, <span class="cur-sym">$</span><input data-money name="maxPrice" type="number" step="0.01" min="0" placeholder="∞"></label>
+        <label>Изменение от, %<input name="minChange" type="number" step="0.5" min="0" value="2" data-pct></label>
+        <label>Продаж за 7д ≥<input name="minVolume" type="number" step="1" min="0" value="10"></label>
+        <label>Категория
+          <select name="cat">
+            <option value="">Все</option>
+            <option value="weapon">Оружие</option>
+            <option value="knife">Ножи</option>
+            <option value="gloves">Перчатки</option>
+            <option value="sticker">Наклейки</option>
+            <option value="container">Кейсы и капсулы</option>
+            <option value="agent">Агенты</option>
+            <option value="charm">Брелоки</option>
+          </select>
+        </label>
+        <fieldset class="chips" data-multi="markets"><legend>Площадки (для цен лотов)</legend></fieldset>
+        <label class="check" title="Для продаж Skinport: рост/падение засчитывается, только если текущий минимальный лот сдвинулся в ту же сторону">
+          <input type="checkbox" name="confirmed" value="1" data-off="0" checked> Только подтверждённые лотами
+        </label>
+      </form>
+      <p class="basis-note" id="movers-basis" aria-live="polite"></p>
+      <div class="toolbar">
+        <span class="count" id="movers-count"></span>
+        <span class="spacer"></span>
+        <a class="btn" data-export="movers" data-format="csv">Выгрузить CSV</a>
+        <a class="btn" data-export="movers" data-format="json">JSON</a>
+      </div>
+      <div class="movers-grid">
+        <div>
+          <h2 class="movers-h up">▲ Растут</h2>
+          <div class="table-wrap"><table class="grid" id="t-up"></table></div>
+        </div>
+        <div>
+          <h2 class="movers-h down">▼ Падают</h2>
+          <div class="table-wrap"><table class="grid" id="t-down"></table></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Скин: карточка для решения о сделке ───────────────────── -->
+    <section class="panel" data-panel="card" hidden>
+      <div class="intro">
+        <h1>Карточка скина</h1>
+        <p>Сколько стоит сейчас, за сколько можно продать и сколько останется на руках после комиссии, какой процент
+          и насколько быстро скин продаётся. Steam запрашивается вживую.</p>
+      </div>
+      <div class="search-box">
+        <input id="card-q" type="search" placeholder="Найти скин: karambit doppler, ak redline ft…" autocomplete="off" aria-label="Поиск скина">
+        <ul id="card-results" class="suggest" role="listbox" hidden></ul>
+      </div>
+      <article id="card-view" class="card empty">
+        <p>Выберите скин из поиска или нажмите на название в любой таблице.</p>
+      </article>
+      <h2 class="section-h">Избранное</h2>
+      <div id="card-watch" class="mini-cards"></div>
+    </section>
+
+    <!-- ── Сравнение ─────────────────────────────────────────────── -->
+    <section class="panel" data-panel="compare" hidden>
+      <div class="intro">
+        <h1>Сравнение цен</h1>
+        <p>Цены одного предмета на всех площадках. Для Steam, CS.MONEY, CSFloat и BUFF — прямые ссылки: у них нет открытого API.</p>
+      </div>
+      <div class="search-box">
+        <input id="cmp-q" type="search" placeholder="Начните вводить: butterfly fade, ak redline ft…" autocomplete="off" aria-label="Поиск предмета">
+        <ul id="cmp-results" class="suggest" role="listbox" hidden></ul>
+      </div>
+      <div class="compare-layout">
+        <article id="cmp-card" class="card empty">
+          <p>Выберите предмет из поиска или нажмите на название в любой таблице.</p>
+        </article>
+        <aside class="card watch">
+          <h2>Избранное</h2>
+          <ul id="watchlist"></ul>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ── Комиссии ──────────────────────────────────────────────── -->
+    <section class="panel" data-panel="fees" hidden>
+      <div class="intro">
+        <h1>Комиссии площадок</h1>
+        <p>Используются в расчёте арбитража и сохраняются в браузере. Значения по умолчанию — ориентир:
+          площадки меняют условия, а у вас может быть другой уровень аккаунта. Сверьтесь с сайтом площадки.</p>
+      </div>
+      <form id="f-fees" class="card fees">
+        <table class="grid compact">
+          <thead><tr><th>Площадка</th><th>Комиссия с продажи, %</th><th>Доп. расход при покупке, %</th></tr></thead>
+          <tbody id="fees-body"></tbody>
+        </table>
+        <div class="rate-row">
+          <label>Курс доллара, ₽
+            <input type="number" id="rate-input" step="0.01" min="1" placeholder="по ЦБ">
+          </label>
+          <span class="count" id="rate-info"></span>
+        </div>
+        <div class="toolbar">
+          <span class="count">«Доп. расход» — комиссия пополнения баланса или платёжки.</span>
+          <span class="spacer"></span>
+          <button type="button" class="btn ghost" id="fees-reset">Сбросить</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="foot">
+    Данные: Skinport API, market.csgo.com, lis-skins.com, Steam Community Market, курс — ЦБ РФ. Не является финансовой рекомендацией.
+  </footer>
+</body>
+</html>
